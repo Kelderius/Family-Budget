@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учет расходов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            margin: 20px;
+        }
+
+        h1, h2, h3 {
+            margin-bottom: 20px;
+        }
+
+        .input-section {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .apply-button {
+            background-color: #17a2b8;
+            margin-top: 10px;
+        }
+
+        .apply-button:hover {
+            background-color: #138496;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            margin-top: 10px;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+
+        .add-budget-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .accounts-section ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .accounts-section li {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .account-details {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 4px;
+        }
+
+        .chart-section {
+            margin-top: 20px;
+        }
+
+        .report-section {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #detailedSummary {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 4px;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: -8px;
+            margin-bottom: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Учет расходов</h1>
+
+        <div class="input-section">
+            <label for="totalBudget">Общий бюджет на месяц:</label>
+            <input type="number" id="totalBudget" min="0" step="0.01" placeholder="Введите сумму">
+            <div class="error-message" id="budgetError"></div>
+            <button id="setBudgetButton">Установить бюджет</button>
+            <div class="add-budget-section">
+                <input type="number" id="addToBudget" min="0" step="0.01" placeholder="Сумма для добавления">
+                <div class="error-message" id="addBudgetError"></div>
+                <button id="addBudgetButton">Внести в бюджет</button>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <label for="accountName">Название счета:</label>
+<input type="text" id="accountName" placeholder="Например, Продукты">
+            <div class="error-message" id="accountError"></div>
+            <button id="createAccountButton">Создать счет</button>
+        </div>
+
+        <div class="accounts-section">
+            <h2>Счета:</h2>
+            <ul id="accountsList"></ul>
+        </div>
+
+        <div class="chart-section">
+            <h2>График расходов</h2>
+            <canvas id="expensesChart"></canvas>
+        </div>
+
+        <div class="report-section">
+            <h2>Общий отчет:</h2>
+            <p>Общий бюджет: <span id="displayTotalBudget">0</span></p>
+            <p>Общие планируемые расходы: <span id="totalPlanned">0</span></p>
+            <p>Общие реальные расходы: <span id="totalActual">0</span></p>
+            <p>Общий остаток: <span id="totalRemaining">0</span></p>
+
+            <button id="toggleDetails">Показать подробную сводку</button>
+            <div id="detailedSummary" style="display: none;">
+                <h3>Подробная сводка по счетам:</h3>
+                <ul id="summaryList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const totalBudgetInput = document.getElementById('totalBudget');
+            const setBudgetButton = document.getElementById('setBudgetButton');
+            const addToBudgetInput = document.getElementById('addToBudget');
+            const addBudgetButton = document.getElementById('addBudgetButton');
+            const accountNameInput = document.getElementById('accountName');
+            const createAccountButton = document.getElementById('createAccountButton');
+            const accountsList = document.getElementById('accountsList');
+            const displayTotalBudget = document.getElementById('displayTotalBudget');
+            const totalPlanned = document.getElementById('totalPlanned');
+            const totalActual = document.getElementById('totalActual');
+            const totalRemaining = document.getElementById('totalRemaining');
+            const toggleDetailsButton = document.getElementById('toggleDetails');
+            const detailedSummary = document.getElementById('detailedSummary');
+            const summaryList = document.getElementById('summaryList');
+            const budgetError = document.getElementById('budgetError');
+            const addBudgetError = document.getElementById('addBudgetError');
+            const accountError = document.getElementById('accountError');
+
+            let totalBudget = parseFloat(localStorage.getItem('totalBudget')) || 0;
+            let accounts = JSON.parse(localStorage.getItem('accounts')) || [];
+            let expensesChart = null;
+
+            function initializeChart() {
+                const ctx = document.getElementById('expensesChart').getContext('2d');
+                expensesChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Расходы по счетам',
+                            data: [],
+                            backgroundColor: [
+                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+                            ],
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.label}: ${context.raw} ₽`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+function updateChart() {
+                if (!expensesChart) return;
+
+                const labels = [];
+                const data = [];
+                accounts.forEach(account => {
+                    if (account.actual > 0) {
+                        labels.push(account.name);
+                        data.push(account.actual);
+                    }
+                });
+
+                // Если нет данных, показываем пустой график
+                if (data.length === 0) {
+                    labels.push('Нет данных');
+                    data.push(1);
+                    expensesChart.data.datasets[0].backgroundColor = ['#e9e9e9'];
+                } else {
+                    expensesChart.data.datasets[0].backgroundColor = [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+                    ];
+                }
+
+                expensesChart.data.labels = labels;
+                expensesChart.data.datasets[0].data = data;
+                expensesChart.update();
+            }
+
+            function updateSummary() {
+                summaryList.innerHTML = '';
+                accounts.forEach(account => {
+                    const li = document.createElement('li');
+                    const percentage = totalBudget > 0 
+                        ? ((account.actual / totalBudget) * 100).toFixed(2)
+                        : '0';
+                        li.textContent = `${account.name}: ${account.actual.toFixed(2)} ₽ (${percentage}%)`;
+                    summaryList.appendChild(li);
+                });
+            }
+
+            function updateDisplay() {
+                displayTotalBudget.textContent = totalBudget.toFixed(2);
+
+                let totalPlannedExpenses = 0;
+                let totalActualExpenses = 0;
+                accounts.forEach(account => {
+                    totalPlannedExpenses += account.planned || 0;
+                    totalActualExpenses += account.actual || 0;
+                });
+                
+                totalPlanned.textContent = totalPlannedExpenses.toFixed(2);
+                totalActual.textContent = totalActualExpenses.toFixed(2);
+                const remaining = totalBudget - totalActualExpenses;
+                totalRemaining.textContent = remaining.toFixed(2);
+                
+                // Изменяем цвет остатка, если он отрицательный
+                totalRemaining.style.color = remaining < 0 ? '#dc3545' : 'inherit';
+
+                accountsList.innerHTML = '';
+                accounts.forEach((account, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = account.name;
+
+                    const details = document.createElement('div');
+                    details.className = 'account-details';
+                    details.style.display = 'block';
+
+                    const plannedLabel = document.createElement('label');
+                    plannedLabel.textContent = 'Планируемые расходы:';
+                    const plannedInput = document.createElement('input');
+                    plannedInput.type = 'number';
+                    plannedInput.min = '0';
+                    plannedInput.step = '0.01';
+                    plannedInput.value = account.planned || '';
+                    plannedInput.addEventListener('change', (e) => {
+                        account.planned = Math.max(0, parseFloat(e.target.value) || 0);
+                        localStorage.setItem('accounts', JSON.stringify(accounts));
+                        updateDisplay();
+                    });
+
+                    const actualLabel = document.createElement('label');
+                    actualLabel.textContent = 'Реальные расходы:';
+                    const actualInput = document.createElement('input');
+                    actualInput.type = 'number';
+                    actualInput.min = '0';
+                    actualInput.step = '0.01';
+                    actualInput.value = account.actual || '';
+                    actualInput.addEventListener('change', (e) => {
+                        account.
+actual = Math.max(0, parseFloat(e.target.value) || 0);
+                        localStorage.setItem('accounts', JSON.stringify(accounts));
+                        updateDisplay();
+                    });
+
+                    const calculatorLabel = document.createElement('label');
+                    calculatorLabel.textContent = 'Калькулятор:';
+                    const calculatorInput = document.createElement('input');
+                    calculatorInput.type = 'number';
+                    calculatorInput.min = '0';
+                    calculatorInput.step = '0.01';
+                    calculatorInput.placeholder = 'Введите сумму';
+                    
+                    const applyButton = document.createElement('button');
+                    applyButton.textContent = 'Применить';
+                    applyButton.className = 'apply-button';
+                    applyButton.addEventListener('click', () => {
+                        const value = Math.max(0, parseFloat(calculatorInput.value) || 0);
+                        account.actual += value;
+                        calculatorInput.value = '';
+                        localStorage.setItem('accounts', JSON.stringify(accounts));
+                        updateDisplay();
+                    });
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Удалить счет';
+                    deleteButton.className = 'delete-button';
+                    deleteButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Вы уверены, что хотите удалить счет "${account.name}"?`)) {
+                            accounts.splice(index, 1);
+                            localStorage.setItem('accounts', JSON.stringify(accounts));
+                            updateDisplay();
+                        }
+                    });
+
+                    details.appendChild(plannedLabel);
+                    details.appendChild(plannedInput);
+                    details.appendChild(actualLabel);
+                    details.appendChild(actualInput);
+                    details.appendChild(calculatorLabel);
+                    details.appendChild(calculatorInput);
+                    details.appendChild(applyButton);
+                    details.appendChild(deleteButton);
+
+                    li.appendChild(details);
+                    accountsList.appendChild(li);
+                });
+
+                updateChart();
+                updateSummary();
+            }
+
+            function showError(element, message) {
+                element.textContent = message;
+                element.style.display = 'block';
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 3000);
+            }
+
+            setBudgetButton.addEventListener('click', () => {
+                const value = parseFloat(totalBudgetInput.value);
+                if (isNaN(value) || value < 0) {
+                    showError(budgetError, 'Пожалуйста, введите корректную сумму');
+                    return;
+                }
+                totalBudget = value;
+                localStorage.setItem('totalBudget', totalBudget);
+                totalBudgetInput.value = '';
+                updateDisplay();
+            });
+
+            addBudgetButton.addEventListener('click', () => {
+                const value = parseFloat(addToBudgetInput.value);
+                if (isNaN(value) || value <= 0) {
+                    showError(addBudgetError, 'Пожалуйста, введите положительную сумму');
+                    return;
+                }
+                totalBudget += value;
+                addToBudgetInput.value = '';
+                localStorage.setItem('totalBudget', totalBudget);
+                updateDisplay();
+            });
+
+            createAccountButton.addEventListener('click', () => {
+                const name = accountNameInput.value.trim();
+                if (!name) {
+                    showError(accountError, 'Пожалуйста, введите название счета');
+return;
+                }
+                if (accounts.some(account => account.name.toLowerCase() === name.toLowerCase())) {
+                    showError(accountError, 'Счет с таким названием уже существует');
+                    return;
+                }
+                accounts.push({ name, planned: 0, actual: 0 });
+                localStorage.setItem('accounts', JSON.stringify(accounts));
+                accountNameInput.value = '';
+                updateDisplay();
+            });
+
+            toggleDetailsButton.addEventListener('click', () => {
+                if (detailedSummary.style.display === 'none') {
+                    detailedSummary.style.display = 'block';
+                    toggleDetailsButton.textContent = 'Скрыть подробную сводку';
+                } else {
+                    detailedSummary.style.display = 'none';
+                    toggleDetailsButton.textContent = 'Показать подробную сводку';
+                }
+            });
+
+            // Инициализация при загрузке
+            initializeChart();
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>
